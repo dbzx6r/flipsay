@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FlipSay — Public Beta</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --O:#FF8000;--OB:#FFA030;--OD:#C05000;--OX:#7A3000;--OG:#FF9010;
+  --BG:#0C0700;--BG2:#140B00;--BG3:#1C1000;
+  --DIM:#7A4500;--GRN:#00FF80;--RED:#FF2200;--YEL:#FFD700;
+  --PX:'Press Start 2P',monospace;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--BG);}
+body{font-family:var(--PX);font-size:8px;color:var(--O);image-rendering:pixelated;cursor:default;}
+
+/* ── FRAME ── */
+#frame{width:100vw;height:100vh;display:flex;flex-direction:column;
+  border:3px solid var(--OD);position:relative;overflow:hidden;
+  box-shadow:0 0 40px rgba(255,128,0,0.12);}
+.corner{position:absolute;width:14px;height:14px;z-index:200;}
+.tl{top:0;left:0;border-top:3px solid var(--OB);border-left:3px solid var(--OB);}
+.tr{top:0;right:0;border-top:3px solid var(--OB);border-right:3px solid var(--OB);}
+.bl{bottom:0;left:0;border-bottom:3px solid var(--OB);border-left:3px solid var(--OB);}
+.br{bottom:0;right:0;border-bottom:3px solid var(--OB);border-right:3px solid var(--OB);}
+
+/* ── WELCOME MODAL ── */
+#welcome{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(8,4,0,0.97);
+  display:flex;align-items:center;justify-content:center;
+}
+#welcome-box{
+  border:3px solid var(--O);
+  background:var(--BG2);
+  padding:28px 32px;
+  max-width:480px;width:92%;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  position:relative;
+}
+#welcome-box::before,#welcome-box::after{
+  content:'';position:absolute;width:12px;height:12px;
+}
+#welcome-box::before{top:-1px;left:-1px;border-top:3px solid var(--OB);border-left:3px solid var(--OB);}
+#welcome-box::after{bottom:-1px;right:-1px;border-bottom:3px solid var(--OB);border-right:3px solid var(--OB);}
+#welcome-logo{font-size:26px;color:var(--OB);letter-spacing:4px;
+  text-shadow:3px 3px 0 var(--OX),0 0 20px var(--OG);}
+#welcome-beta{font-size:7px;color:var(--YEL);letter-spacing:3px;
+  border:2px solid var(--YEL);padding:3px 10px;
+  animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes alert-flash{0%,100%{box-shadow:0 0 40px rgba(255,128,0,0.12)}50%{box-shadow:0 0 0 4px #FF2200,0 0 40px rgba(255,34,0,0.4)}}
+#frame.alerting{animation:alert-flash 0.3s 3;}
+#welcome-msg{font-size:6px;color:var(--DIM);line-height:2.4;text-align:center;}
+#welcome-msg span{color:var(--OB);}
+.wline{width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--OD),transparent);}
+#welcome-notes{font-size:5px;color:var(--DIM);line-height:2.4;text-align:left;width:100%;}
+#welcome-notes li{list-style:none;padding-left:10px;}
+#welcome-notes li::before{content:'▸ ';color:var(--O);}
+#welcome-ok{
+  background:var(--O);border:none;color:var(--BG);
+  font-family:var(--PX);font-size:8px;padding:10px 28px;
+  cursor:pointer;letter-spacing:2px;margin-top:6px;
+  transition:background .1s;
+}
+#welcome-ok:hover{background:var(--OB);}
+
+/* ── HEADER ── */
+#hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 12px;background:var(--BG2);border-bottom:3px solid var(--OD);
+  flex-shrink:0;min-height:52px;}
+#logo{display:flex;align-items:center;gap:10px;}
+#logo-title{font-size:19px;color:var(--OB);letter-spacing:3px;
+  text-shadow:3px 3px 0 var(--OX),0 0 18px var(--OG);line-height:1;}
+#logo-sub{font-size:5px;color:var(--DIM);letter-spacing:2px;margin-top:3px;}
+#beta-badge{font-size:5px;color:var(--YEL);border:1px solid var(--YEL);
+  padding:2px 5px;margin-left:6px;align-self:flex-start;margin-top:2px;
+  animation:pulse 2s infinite;}
+#hdr-right{display:flex;align-items:center;gap:10px;}
+#conn-info{text-align:right;}
+#conn-device{font-size:8px;color:var(--OB);line-height:1.7;}
+#conn-tty{font-size:5px;color:var(--DIM);}
+#conn-btn{background:var(--BG3);border:2px solid var(--O);color:var(--OB);
+  font-family:var(--PX);font-size:7px;padding:5px 10px;cursor:pointer;
+  white-space:nowrap;}
+#conn-btn:hover{background:var(--O);color:var(--BG);}
+#conn-btn.on{border-color:var(--GRN);color:var(--GRN);}
+
+/* ── TABS ── */
+#tabs{display:flex;background:var(--BG2);border-bottom:3px solid var(--OD);flex-shrink:0;}
+.tab{font-size:7px;padding:7px 13px;cursor:pointer;color:var(--DIM);
+  border-right:2px solid var(--OX);border-bottom:3px solid transparent;
+  margin-bottom:-3px;letter-spacing:1px;}
+.tab:hover{color:var(--OB);background:var(--BG3);}
+.tab.active{color:var(--BG);background:var(--OB);border-color:var(--OB);}
+
+/* ── BODY ── */
+#body{display:flex;flex:1;overflow:hidden;position:relative;}
+
+/* ── DISCONNECT OVERLAY ── */
+#overlay{position:absolute;inset:0;z-index:50;
+  background:rgba(12,7,0,0.93);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#overlay.hidden{display:none;}
+#ov-icon{font-size:28px;color:var(--OD);animation:blink 1.2s infinite;}
+#ov-title{font-size:10px;color:var(--OB);letter-spacing:2px;text-align:center;
+  text-shadow:0 0 12px var(--OG);}
+#ov-sub{font-size:6px;color:var(--DIM);text-align:center;line-height:2.4;}
+#ov-btn{background:var(--BG3);border:2px solid var(--O);color:var(--OB);
+  font-family:var(--PX);font-size:8px;padding:8px 18px;cursor:pointer;}
+#ov-btn:hover{background:var(--O);color:var(--BG);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.15}}
+
+/* ── CENTER ── */
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:3px solid var(--OD);}
+
+/* ── FREQ BAR ── */
+#fbar{display:flex;align-items:center;gap:5px;padding:4px 7px;
+  background:var(--BG2);border-bottom:2px solid var(--OX);flex-shrink:0;flex-wrap:wrap;}
+.fnav{background:var(--BG3);border:2px solid var(--OD);color:var(--O);
+  font-family:var(--PX);font-size:8px;padding:3px 6px;cursor:pointer;}
+.fnav:hover{background:var(--O);color:var(--BG);}
+#fdisp{font-size:10px;color:var(--OB);letter-spacing:1px;min-width:115px;
+  text-shadow:0 0 8px var(--OG);}
+select.pxs{background:var(--BG3);border:2px solid var(--OD);color:var(--OB);
+  font-family:var(--PX);font-size:6px;padding:3px 4px;outline:none;}
+select.pxs option{background:var(--BG2);}
+input[type=range].pxr{-webkit-appearance:none;height:8px;background:var(--BG3);
+  border:2px solid var(--OD);outline:none;}
+input[type=range].pxr::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:14px;
+  background:var(--O);border:2px solid var(--OX);cursor:pointer;}
+#bwval{font-size:6px;color:var(--DIM);min-width:55px;}
+.pxbtn{background:var(--BG3);border:2px solid var(--OD);color:var(--O);
+  font-family:var(--PX);font-size:7px;padding:4px 8px;cursor:pointer;letter-spacing:1px;}
+.pxbtn:hover{background:var(--O);color:var(--BG);}
+.pxbtn.active{background:var(--OB);color:var(--BG);border-color:var(--OB);}
+.pxbtn.red{border-color:var(--RED);color:var(--RED);}
+.pxbtn.red:hover{background:var(--RED);color:var(--BG);}
+
+/* ── SPECTRUM MODE BUTTONS ── */
+#mode-bar{display:flex;align-items:center;gap:0;padding:4px 7px;
+  background:var(--BG2);border-bottom:2px solid var(--OX);flex-shrink:0;}
+#mode-label{font-size:6px;color:var(--DIM);margin-right:8px;}
+.mode-btn{font-family:var(--PX);font-size:6px;padding:5px 10px;
+  border:2px solid var(--OD);background:var(--BG3);color:var(--DIM);
+  cursor:pointer;letter-spacing:1px;border-right:none;}
+.mode-btn:last-child{border-right:2px solid var(--OD);}
+.mode-btn:hover{color:var(--OB);}
+.mode-btn.active{background:var(--O);color:var(--BG);border-color:var(--O);}
+.mode-btn.active+.mode-btn{border-left:none;}
+#mode-desc{font-size:5px;color:var(--DIM);margin-left:10px;font-style:normal;}
+
+/* ── SPECTRUM ZONE ── */
+#speczone{flex:1;display:flex;min-height:0;background:var(--BG);}
+#yaxis{width:30px;display:flex;flex-direction:column;justify-content:space-between;
+  padding:6px 3px 22px 3px;font-size:5px;color:var(--DIM);flex-shrink:0;
+  border-right:2px solid var(--OX);background:var(--BG2);}
+#canvases{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#spec-canvas{flex:1;width:100%;display:block;min-height:0;}
+#wf-canvas{width:100%;height:100px;display:block;flex-shrink:0;}
+#xaxis{display:flex;justify-content:space-between;padding:2px 4px;font-size:5px;
+  color:var(--DIM);background:var(--BG2);border-top:2px solid var(--OX);flex-shrink:0;}
+#data-badge{position:absolute;top:4px;right:6px;font-size:5px;z-index:10;
+  padding:2px 5px;border:1px solid var(--OX);}
+#data-badge.real{color:var(--GRN);border-color:var(--GRN);background:rgba(0,255,128,0.07);}
+#data-badge.sim{color:var(--YEL);border-color:var(--YEL);background:rgba(255,215,0,0.07);}
+#data-badge.pkg{color:var(--OB);border-color:var(--OB);background:rgba(255,160,48,0.07);}
+#data-badge.idle{color:var(--DIM);border-color:var(--OX);}
+
+/* ── LOWER STRIP ── */
+#lower{display:flex;border-top:3px solid var(--OD);flex-shrink:0;height:190px;}
+#demod{width:185px;flex-shrink:0;background:var(--BG2);border-right:3px solid var(--OD);padding:6px;display:flex;flex-direction:column;}
+#gain{flex:1;background:var(--BG2);border-right:3px solid var(--OD);padding:6px;display:flex;flex-direction:column;gap:3px;}
+#mini-logs{width:210px;flex-shrink:0;background:var(--BG2);padding:6px;display:flex;flex-direction:column;overflow:hidden;}
+.ptitle{font-size:8px;color:var(--OB);letter-spacing:1px;border-bottom:2px solid var(--OD);padding-bottom:3px;margin-bottom:5px;}
+.dr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:3px;}
+.dl{font-size:5px;color:var(--DIM);min-width:58px;}
+.dv{font-size:6px;color:var(--OB);}
+.gb-row{display:flex;align-items:center;gap:4px;margin-bottom:5px;}
+.gb-label{font-size:5px;color:var(--DIM);width:55px;}
+.gb-track{flex:1;height:10px;background:var(--BG3);border:2px solid var(--OD);position:relative;cursor:ew-resize;}
+.gb-fill{position:absolute;left:0;top:0;height:100%;
+  background:repeating-linear-gradient(90deg,var(--OD) 0,var(--OD) 4px,var(--OX) 4px,var(--OX) 6px);pointer-events:none;}
+.gb-head{position:absolute;top:-3px;width:10px;height:16px;background:var(--OB);
+  border:2px solid var(--OX);transform:translateX(-50%);cursor:ew-resize;}
+#loglist{flex:1;overflow-y:auto;font-size:5px;line-height:2.1;}
+.li{color:var(--DIM);}.ls{color:var(--OB);}.lw{color:var(--RED);}.lo{color:var(--GRN);}
+#bigfreq-box{margin-top:auto;border:2px solid var(--OD);background:var(--BG3);padding:4px 5px;}
+#bigfreq{font-size:11px;color:var(--OB);text-shadow:0 0 10px var(--OG);letter-spacing:2px;}
+#bfunit{font-size:6px;color:var(--DIM);}
+#sigbar{width:100%;height:8px;background:var(--BG);border:2px solid var(--OD);overflow:hidden;margin-top:4px;}
+#sigfill{height:100%;width:0%;background:linear-gradient(90deg,var(--OD),var(--OB));transition:width .15s;}
+
+/* ── RIGHT PANEL ── */
+#right{width:195px;flex-shrink:0;display:flex;flex-direction:column;background:var(--BG2);overflow-y:auto;}
+.rp-sec{border-bottom:2px solid var(--OX);padding:6px;}
+.rp-title{font-size:7px;color:var(--OB);margin-bottom:5px;letter-spacing:1px;}
+.rp-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:3px;}
+.rp-lbl{font-size:5px;color:var(--DIM);}
+.rp-val{font-size:5px;color:var(--OB);}
+#rxtx{display:flex;margin-bottom:7px;}
+.rxtx-btn{flex:1;font-family:var(--PX);font-size:8px;padding:5px 0;border:2px solid var(--OD);
+  background:var(--BG3);color:var(--DIM);cursor:pointer;text-align:center;}
+.rxtx-btn.on{background:var(--OB);color:var(--BG);border-color:var(--OB);}
+#rx-b{border-right:none;}
+.tgl{font-family:var(--PX);font-size:5px;padding:3px 5px;border:2px solid var(--OD);background:var(--BG3);color:var(--DIM);cursor:pointer;}
+.tgl.on{background:var(--O);color:var(--BG);border-color:var(--O);}
+.rp-gain-row{display:flex;align-items:center;gap:3px;margin-bottom:4px;}
+.rp-gain-lbl{font-size:5px;color:var(--DIM);width:50px;}
+.rp-gain-bar{flex:1;height:7px;background:var(--BG3);border:2px solid var(--OD);overflow:hidden;}
+.rp-gain-fill{height:100%;background:repeating-linear-gradient(90deg,var(--OD) 0,var(--OD) 3px,var(--OX) 3px,var(--OX) 5px);}
+.rp-gain-val{font-size:5px;color:var(--OB);min-width:26px;text-align:right;}
+#gpu-row{display:flex;align-items:center;gap:4px;padding:5px 6px;border-top:2px solid var(--OX);}
+#gpu-bar{flex:1;height:7px;background:var(--BG3);border:2px solid var(--OD);overflow:hidden;}
+#gpu-fill{width:5%;height:100%;background:var(--O);transition:width .5s;}
+
+/* ── STATUS BAR ── */
+#sbar{display:flex;align-items:center;gap:8px;padding:3px 8px;
+  background:var(--BG2);border-top:3px solid var(--OD);font-size:5px;color:var(--DIM);flex-shrink:0;}
+#sbar .dot{color:var(--O);}
+#sbar span{color:var(--O);}
+#sbar-time{margin-left:auto;}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;overflow:hidden;}
+.view.active{display:flex;flex-direction:column;}
+.tab-inner{flex:1;padding:9px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;}
+.tbox{background:var(--BG2);border:2px solid var(--OD);padding:7px;}
+.tbox-title{font-size:8px;color:var(--OB);margin-bottom:7px;letter-spacing:1px;
+  border-bottom:2px solid var(--OX);padding-bottom:3px;}
+.tbox-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px;}
+.tfield{display:flex;flex-direction:column;gap:3px;}
+.tfield label{font-size:5px;color:var(--DIM);}
+.tfield input,.tfield select{background:var(--BG3);border:2px solid var(--OD);color:var(--OB);
+  font-family:var(--PX);font-size:6px;padding:3px 5px;outline:none;}
+.bigbtn{background:var(--BG3);border:2px solid var(--O);color:var(--OB);
+  font-family:var(--PX);font-size:7px;padding:6px 12px;cursor:pointer;letter-spacing:1px;}
+.bigbtn:hover{background:var(--O);color:var(--BG);}
+.bigbtn.red{border-color:var(--RED);color:var(--RED);}
+.bigbtn.red:hover{background:var(--RED);color:var(--BG);}
+#rxout{font-size:5px;line-height:2;color:var(--DIM);background:var(--BG);border:2px solid var(--OX);
+  padding:5px;flex:1;overflow-y:auto;white-space:pre-wrap;word-break:break-all;min-height:80px;}
+.sig-item{display:flex;align-items:center;gap:8px;padding:4px 7px;
+  border:2px solid var(--OX);background:var(--BG2);margin-bottom:3px;font-size:5px;}
+.sig-item:hover{border-color:var(--O);}
+.sf{color:var(--OB);}.sp{color:var(--DIM);}.sr{color:var(--GRN);}
+#fulllog{flex:1;background:var(--BG);border:2px solid var(--OX);padding:5px;
+  font-size:5px;line-height:2;color:var(--DIM);overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--BG3);}
+::-webkit-scrollbar-thumb{background:var(--OD);}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent 0,transparent 3px,rgba(0,0,0,0.055) 3px,rgba(0,0,0,0.055) 4px);}
+</style>
+</head>
+<body>
+
+<!-- ══ WELCOME MODAL ══ -->
+<div id="welcome">
+  <div id="welcome-box">
+    <div id="welcome-logo">FlipSay</div>
+    <div id="welcome-beta">◈ PUBLIC BETA ◈</div>
+    <div class="wline"></div>
+    <div id="welcome-msg">
+      Welcome to <span>FlipSay</span> — the first browser-based<br>
+      SDR-style interface for <span>Flipper Zero</span>.<br><br>
+      Connect your Flipper via USB and start<br>
+      exploring the radio spectrum in real time.
+    </div>
+    <div class="wline"></div>
+    <ul id="welcome-notes">
+      <li>Requires <span style="color:var(--OB)">Momentum firmware</span> (developer version)</li>
+      <li>Enable <span style="color:var(--OB)">Debug Mode</span> on your Flipper first</li>
+      <li>Use <span style="color:var(--OB)">Google Chrome</span> or <span style="color:var(--OB)">Microsoft Edge</span></li>
+      <li>Close <span style="color:var(--OB)">qFlipper</span> before connecting</li>
+      <li>This is a <span style="color:var(--YEL)">beta</span> — bugs may occur. Report them!</li>
+    </ul>
+    <div class="wline"></div>
+    <div style="font-size:5px;color:var(--DIM);text-align:center;">Built by itsc0c0 · flipsay.dev · v0.9-beta</div>
+    <button id="welcome-ok" onclick="closeWelcome()">LET'S GO ▶</button>
+  </div>
+</div>
+
+<div id="frame">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+
+  <!-- HEADER -->
+  <div id="hdr">
+    <div id="logo">
+      <svg width="42" height="42" viewBox="0 0 44 44" style="image-rendering:pixelated;flex-shrink:0;">
+        <rect width="44" height="44" fill="#1A0900"/>
+        <rect x="1" y="1" width="42" height="42" fill="none" stroke="#FF8000" stroke-width="2"/>
+        <rect x="4"  y="22" width="4" height="4"  fill="#FF8000"/>
+        <rect x="8"  y="18" width="4" height="8"  fill="#FF8000"/>
+        <rect x="12" y="14" width="4" height="14" fill="#FFA030"/>
+        <rect x="16" y="12" width="4" height="18" fill="#FFA030"/>
+        <rect x="20" y="14" width="4" height="14" fill="#FF8000"/>
+        <rect x="24" y="18" width="4" height="10" fill="#C05000"/>
+        <rect x="28" y="20" width="4" height="8"  fill="#C05000"/>
+        <rect x="32" y="22" width="6" height="4"  fill="#7A3000"/>
+        <rect x="34" y="18" width="4" height="4"  fill="#C05000"/>
+        <rect x="34" y="26" width="4" height="4"  fill="#C05000"/>
+        <rect x="18" y="8"  width="4" height="6"  fill="#FF8000"/>
+        <rect x="20" y="4"  width="2" height="4"  fill="#FFA030"/>
+        <rect x="14" y="16" width="2" height="2"  fill="#FFD060"/>
+        <rect x="2"  y="14" width="2" height="2"  fill="#FF8000"/>
+        <rect x="2"  y="19" width="2" height="2"  fill="#C05000"/>
+        <rect x="2"  y="24" width="2" height="2"  fill="#7A3000"/>
+        <rect x="38" y="10" width="2" height="2"  fill="#FFA030"/>
+        <rect x="40" y="8"  width="2" height="2"  fill="#FF8000"/>
+        <rect x="38" y="16" width="2" height="2"  fill="#FFA030"/>
+      </svg>
+      <div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div id="logo-title">FlipSay</div>
+          <div id="beta-badge">BETA</div>
+        </div>
+        <div id="logo-sub">— By itsc0c0 —</div>
+      </div>
+    </div>
+    <div id="hdr-right">
+      <div id="conn-info">
+        <div id="conn-device">Not Connected</div>
+        <div id="conn-tty">USB Serial Disconnected</div>
+      </div>
+      <button id="conn-btn" onclick="toggleConnect()">CONNECT USB</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <div class="tab active" onclick="showTab('spectrum',this)">Spectrum</div>
+    <div class="tab"        onclick="showTab('subghz',  this)">Sub-GHz</div>
+    <div class="tab"        onclick="showTab('signals', this)">Signals</div>
+    <div class="tab"        onclick="showTab('logs',    this)">Logs</div>
+  </div>
+
+  <!-- BODY -->
+  <div id="body">
+
+    <!-- DISCONNECT OVERLAY -->
+    <div id="overlay">
+      <div id="ov-icon">⬡</div>
+      <div id="ov-title">FLIPPER NOT CONNECTED</div>
+      <div id="ov-sub">
+        Connect Flipper Zero via USB cable.<br>
+        Close qFlipper · Enable Debug Mode<br>
+        Momentum firmware required.<br>
+        Chrome or Edge only (WebSerial API).
+      </div>
+      <button id="ov-btn" onclick="toggleConnect()">CONNECT NOW</button>
+    </div>
+
+    <!-- ══ SPECTRUM VIEW ══ -->
+    <div id="view-spectrum" class="view active" style="flex-direction:row;">
+      <div id="center">
+
+        <!-- FREQ BAR -->
+        <div id="fbar">
+          <button class="fnav" onclick="stepF(-1)">◄◄</button>
+          <div id="fdisp">433.920000</div>
+          <button class="fnav" onclick="stepF(1)">►►</button>
+          <select class="pxs" id="preset-sel" onchange="applyPreset(this.value)">
+            <option value="433920000">433.92 MHz</option>
+            <option value="315000000">315.00 MHz</option>
+            <option value="868000000">868.00 MHz</option>
+            <option value="915000000">915.00 MHz</option>
+            <option value="300000000">300.00 MHz</option>
+            <option value="928000000">928.00 MHz</option>
+          </select>
+          <div id="bwval">1000 kHz</div>
+          <input type="range" class="pxr" id="bw-sl" min="100" max="3000" value="1000"
+            oninput="setBW(this.value)" style="width:75px;">
+          <button class="pxbtn" id="scanbtn" onclick="startSweep()">▶ SWEEP</button>
+          <button class="pxbtn red" onclick="stopSweep()">■ STOP</button>
+          <button class="pxbtn" onclick="startRX()">RX HERE</button>
+        </div>
+
+        <!-- SPECTRUM MODE BAR -->
+        <div id="mode-bar">
+          <span id="mode-label">SPECTRUM MODE:</span>
+          <button class="mode-btn active" id="mb-real" onclick="setMode('real',this)">REAL</button>
+          <button class="mode-btn" id="mb-sim"  onclick="setMode('sim', this)">SIMULATION</button>
+          <button class="mode-btn" id="mb-pkg"  onclick="setMode('pkg', this)">PACKAGE</button>
+          <span id="mode-desc">Amplified real RSSI · tiny signals visible</span>
+        </div>
+
+        <!-- SPECTRUM -->
+        <div id="speczone">
+          <div id="yaxis">
+            <span style="font-size:5px;color:var(--OD);">RSSI</span>
+            <span>-20</span><span>-40</span><span>-60</span><span>-80</span><span>-90</span>
+          </div>
+          <div id="canvases">
+            <div id="data-badge" class="idle">● WAITING</div>
+            <canvas id="spec-canvas"></canvas>
+            <canvas id="wf-canvas"></canvas>
+            <div id="xaxis">
+              <span id="xa-l">—</span><span id="xa-m1">—</span>
+              <span id="xa-c">433.920000 MHz</span>
+              <span id="xa-m2">—</span><span id="xa-r">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOWER -->
+        <div id="lower">
+          <div id="demod">
+            <div class="ptitle">Demodulation</div>
+            <div class="dr"><span class="dl">Mode</span>
+              <select class="pxs"><option>OOK</option><option>AM270</option><option>AM650</option>
+                <option>FM328</option><option>FM476</option><option>FSK</option></select>
+            </div>
+            <div class="dr"><span class="dl">Profile</span>
+              <select class="pxs"><option>Flipper Default</option><option>Custom</option></select>
+            </div>
+            <div class="dr"><span class="dl">Threshold</span><span class="dv" id="thresh-v">39%</span></div>
+            <div class="dr"><input type="range" class="pxr" style="width:100%;" min="1" max="100" value="39"
+              oninput="document.getElementById('thresh-v').textContent=this.value+'%'"></div>
+            <div class="dr"><span class="dl">Sync Width</span>
+              <input type="range" class="pxr" style="flex:1;" min="1" max="100" value="50"></div>
+            <div class="dr"><span class="dl">Sync Length</span>
+              <input style="width:48px;background:var(--BG3);border:2px solid var(--OD);color:var(--OB);font-family:var(--PX);font-size:6px;padding:2px 4px;" value="3.38">
+              <span class="dv">µs</span></div>
+            <div id="bigfreq-box">
+              <div style="display:flex;align-items:baseline;gap:4px;">
+                <span id="bigfreq">433.920000</span><span id="bfunit">MHz</span>
+              </div>
+              <div id="sigbar"><div id="sigfill"></div></div>
+            </div>
+          </div>
+
+          <div id="gain">
+            <div class="ptitle">Gain Stages</div>
+            <div style="font-size:6px;color:var(--OB);margin-bottom:4px;">RX Amplifier</div>
+            <div class="gb-row">
+              <span class="gb-label">LNA Gain</span>
+              <div class="gb-track" id="lna-track">
+                <div class="gb-fill" id="lna-fill" style="width:80%"></div>
+                <div class="gb-head" id="lna-head" style="left:80%"></div>
+              </div>
+            </div>
+            <div class="gb-row">
+              <span class="gb-label">Mixer Gain</span>
+              <div class="gb-track" id="mix-track">
+                <div class="gb-fill" id="mix-fill" style="width:66%"></div>
+                <div class="gb-head" id="mix-head" style="left:66%"></div>
+              </div>
+            </div>
+            <div class="gb-row">
+              <span class="gb-label">IF Gain</span>
+              <div class="gb-track" id="if-track">
+                <div class="gb-fill" id="if-fill" style="width:70%"></div>
+                <div class="gb-head" id="if-head" style="left:70%"></div>
+              </div>
+            </div>
+            <div class="dr" style="margin-top:3px;">
+              <span class="dl">AFC</span>
+              <select class="pxs"><option>Hold</option><option>Off</option><option>Auto</option></select>
+              <span class="dl">Accuracy</span>
+              <select class="pxs"><option>Low</option><option>Med</option><option>High</option></select>
+            </div>
+            <div class="dr" style="margin-top:2px;">
+              <span class="dl">LO:</span>
+              <span class="dv" id="lo-v">431.72 MHz</span>
+              <span class="dl" style="margin-left:8px;">Freq</span>
+              <span class="dv">-5 ppm</span>
+            </div>
+          </div>
+
+          <div id="mini-logs">
+            <div class="ptitle">Logs</div>
+            <div id="loglist"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div id="right">
+        <div class="rp-sec">
+          <div class="rp-title">Tuner</div>
+          <div id="rxtx">
+            <button class="rxtx-btn on" id="rx-b" onclick="setRXTX('rx')">RX</button>
+            <button class="rxtx-btn"    id="tx-b" onclick="setRXTX('tx')">TX</button>
+          </div>
+          <div class="rp-row"><span class="rp-lbl">Sampling</span>
+            <select class="pxs" style="font-size:5px;"><option>4.00 Msps</option><option>2.00 Msps</option></select>
+          </div>
+          <div class="rp-row"><span class="rp-lbl">AGC</span>
+            <select class="pxs" style="font-size:5px;"><option>Moderate</option><option>Fast</option><option>Slow</option><option>Off</option></select>
+          </div>
+        </div>
+        <div class="rp-sec">
+          <div class="rp-title">Frequency</div>
+          <div class="rp-row" style="gap:3px;">
+            <button class="pxbtn active" onclick="recordFreq()" style="font-size:5px;padding:3px 5px;">Record</button>
+            <button class="pxbtn" onclick="clearFreq()" style="font-size:5px;padding:3px 5px;">Clear</button>
+            <button class="pxbtn" onclick="saveFreq()" style="font-size:5px;padding:3px 5px;">Save</button>
+          </div>
+          <div class="rp-row" style="margin-top:6px;"><span class="rp-lbl">Live RSSI</span><span class="rp-val" id="live-rssi">— dBm</span></div>
+          <div class="rp-row"><span class="rp-lbl">Pkts Rcvd</span><span class="rp-val" id="pkt-count">0</span></div>
+          <div class="rp-row"><span class="rp-lbl">Mode</span><span class="rp-val" id="mode-badge">REAL</span></div>
+          <div class="rp-row" style="margin-top:4px;">
+            <span class="rp-lbl">Alert &gt;</span>
+            <input type="range" class="pxr" id="thresh-sl" min="-100" max="-20" value="-60" oninput="setThreshold(this.value)" style="flex:1;width:auto;">
+            <span class="rp-val" id="thresh-disp">-60 dBm</span>
+          </div>
+          <div class="rp-row">
+            <span class="rp-lbl">Beep</span>
+            <button class="tgl" id="beep-tgl" onclick="toggleBeep(this)">OFF</button>
+          </div>
+        </div>
+        <div class="rp-sec">
+          <div class="rp-title">Gain Control</div>
+          <div class="rp-gain-row">
+            <span class="rp-gain-lbl">LNA Gain</span>
+            <div class="rp-gain-bar"><div class="rp-gain-fill" id="rp-lna" style="width:80%"></div></div>
+            <span class="rp-gain-val" id="rp-lna-v">32 dB</span>
+          </div>
+          <div class="rp-gain-row">
+            <span class="rp-gain-lbl">Mixer Gain</span>
+            <div class="rp-gain-bar"><div class="rp-gain-fill" id="rp-mix" style="width:66%"></div></div>
+            <span class="rp-gain-val" id="rp-mix-v">16 dB</span>
+          </div>
+          <div class="rp-gain-row">
+            <span class="rp-gain-lbl">IF Gain</span>
+            <div class="rp-gain-bar"><div class="rp-gain-fill" id="rp-if" style="width:70%"></div></div>
+            <span class="rp-gain-val" id="rp-if-v">28 dB</span>
+          </div>
+          <div class="rp-row"><span class="rp-lbl">Memory</span><span class="rp-val">0 Hits</span></div>
+        </div>
+        <div id="gpu-row">
+          <span class="rp-lbl">GPU</span>
+          <div id="gpu-bar"><div id="gpu-fill"></div></div>
+          <span class="rp-val" id="gpu-val">0/58</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-GHZ VIEW -->
+    <div id="view-subghz" class="view">
+      <div class="tab-inner">
+        <div class="tbox">
+          <div class="tbox-title">Sub-GHz — RX / TX</div>
+          <div class="tbox-row">
+            <div class="tfield"><label>Frequency (Hz)</label>
+              <input type="number" id="sg-freq" value="433920000" min="300000000" max="928000000" step="1000" style="width:130px;"></div>
+            <div class="tfield"><label>Device</label>
+              <select id="sg-dev"><option value="0">Internal CC1101</option><option value="1">External CC1101</option></select></div>
+            <div class="tfield"><label>Modulation (device)</label>
+              <select id="sg-mod" title="Note: modulation is set on the Flipper device, this is informational only"><option>OOK</option><option>FSK</option><option>AM270</option><option>FM238</option><option>FM476</option></select></div>
+          </div>
+          <div class="tbox-row" style="gap:5px;margin-top:4px;">
+            <button class="bigbtn" onclick="sgRX()">► RX</button>
+            <button class="bigbtn" onclick="sgRXRaw()">► RX RAW</button>
+            <button class="bigbtn red" onclick="sgStop()">■ STOP</button>
+            <button class="bigbtn" onclick="sgFreqAna()">FREQ ANALYZER</button>
+            <button class="bigbtn" onclick="sgChat()">CHAT</button>
+          </div>
+        </div>
+        <div class="tbox">
+          <div class="tbox-title">TX — Transmit Key</div>
+          <div class="tbox-row">
+            <div class="tfield"><label>Key (3 bytes hex)</label>
+              <input type="text" id="tx-key" value="AABBCC" maxlength="6" style="width:85px;"></div>
+            <div class="tfield"><label>TE (µs)</label>
+              <input type="number" id="tx-te" value="300" style="width:65px;"></div>
+            <div class="tfield"><label>Repeat</label>
+              <input type="number" id="tx-rep" value="3" min="1" max="10" style="width:50px;"></div>
+          </div>
+          <button class="bigbtn" onclick="sgTX()" style="margin-top:3px;">TRANSMIT</button>
+        </div>
+        <div class="tbox" style="flex:1;display:flex;flex-direction:column;">
+          <div class="tbox-title">Serial Output</div>
+          <div id="rxout">[Connect Flipper Zero to begin]
+</div>
+          <div style="display:flex;gap:5px;margin-top:5px;">
+            <button class="bigbtn" onclick="clearRX()" style="font-size:6px;padding:4px 9px;">CLEAR</button>
+            <button class="bigbtn" onclick="saveRX()" style="font-size:6px;padding:4px 9px;">SAVE .TXT</button>
+            <button class="bigbtn" onclick="copyRX()" style="font-size:6px;padding:4px 9px;">COPY</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNALS VIEW -->
+    <div id="view-signals" class="view">
+      <div class="tab-inner">
+        <div style="font-size:8px;color:var(--OB);margin-bottom:6px;">Detected Signals</div>
+        <div style="display:flex;gap:5px;margin-bottom:7px;">
+          <button class="bigbtn" onclick="clearSigs()" style="font-size:6px;padding:4px 9px;">CLEAR</button>
+          <button class="bigbtn" onclick="exportSigs()" style="font-size:6px;padding:4px 9px;">EXPORT</button>
+        </div>
+        <div id="siglist"><div style="font-size:6px;color:var(--DIM);">No signals detected yet.</div></div>
+      </div>
+    </div>
+
+    <!-- LOGS VIEW -->
+    <div id="view-logs" class="view">
+      <div class="tab-inner" style="gap:5px;">
+        <div style="display:flex;gap:5px;">
+          <button class="bigbtn" onclick="clearLogs()" style="font-size:6px;padding:4px 9px;">CLEAR</button>
+          <button class="bigbtn" onclick="exportLogs()" style="font-size:6px;padding:4px 9px;">EXPORT</button>
+          <button class="bigbtn" onclick="copyLogs()" style="font-size:6px;padding:4px 9px;">COPY</button>
+        </div>
+        <div id="fulllog"></div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- STATUS BAR -->
+  <div id="sbar">
+    <span class="dot" id="dot">■</span>
+    <span id="sb-conn">Disconnected</span>
+    <span>|</span><span>Bandwth</span><span id="sb-bw">1000 kHz</span>
+    <span>|</span><span>RSSI</span><span id="sb-rssi">-- dBm</span>
+    <canvas id="spark-canvas" width="80" height="12" style="vertical-align:middle;margin-left:3px;opacity:0.7;"></canvas>
+    <span>|</span><span>Mode</span><span id="sb-mode-txt">REAL</span>
+    <span style="color:var(--OX);">← → freq · SPACE sweep · ESC stop</span>
+    <span id="sbar-time" style="margin-left:auto;"></span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let port=null,reader=null,writer=null,rbuf='';
+let connected=false, sweeping=false;
+let curFreq=433920000, curBW=1000;
+let sweepIv=null, sweepFreqs=[], sweepIdx=0;
+let pktCount=0, lastRSSI=-90;
+let signals=[], gpuT=0;
+let recordedFreqs=[];
+const BINS=64;
+let specReal=new Array(BINS).fill(null);   // real data from Flipper
+let specPkg=new Array(BINS).fill(null);    // package-only data
+let specMode='real'; // 'real' | 'sim' | 'pkg'
+let simPhase=0; // simulation phase for animation
+
+// ═══════════════════════════════════════════════════════
+// WELCOME
+// ═══════════════════════════════════════════════════════
+function closeWelcome(){
+  document.getElementById('welcome').style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════════════
+const SC=document.getElementById('spec-canvas');
+const WC=document.getElementById('wf-canvas');
+const SX=SC.getContext('2d');
+const WX=WC.getContext('2d');
+
+function resize(){
+  const zone=document.getElementById('canvases');
+  const w=zone.clientWidth||600;
+  const h=zone.clientHeight||270;
+  SC.width=w; SC.height=Math.max(60,h-WC.height-18);
+  WC.width=w;
+}
+window.addEventListener('resize',resize);
+setTimeout(resize,80);
+
+// ═══════════════════════════════════════════════════════
+// SPECTRUM MODES
+// ═══════════════════════════════════════════════════════
+const modeDescs={
+  real:'Amplified real RSSI · tiny signals visible',
+  sim: 'Always-on simulation · strong signals',
+  pkg: 'Captured packages only · real data'
+};
+
+function setMode(m,el){
+  specMode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('mode-desc').textContent=modeDescs[m];
+  document.getElementById('mode-badge').textContent=m.toUpperCase();
+  document.getElementById('sb-mode-txt').textContent=m.toUpperCase();
+
+  // update badge
+  const badge=document.getElementById('data-badge');
+  if(m==='sim'){
+    badge.className='data-badge sim'; badge.textContent='● SIMULATION';
+  } else if(m==='pkg'){
+    badge.className='data-badge pkg'; badge.textContent='● PACKAGE';
+    specPkg.fill(null); // clear on switch
+  } else {
+    badge.className='data-badge '+(connected?'real':'idle');
+    badge.textContent=connected?'● REAL DATA':'● WAITING';
+  }
+
+  if(m==='pkg') log('info','Package mode: only received packets shown on spectrum');
+  if(m==='sim') log('info','Simulation mode: demo spectrum active');
+  if(m==='real') log('info','Real mode: spectrum from Flipper RSSI');
+}
+
+// ── Simulation data generator ──
+function tickSim(){
+  simPhase+=0.04;
+  const n=BINS;
+  let d=new Array(n);
+  for(let i=0;i<n;i++){
+    // noise floor around -85
+    let v=-85+Math.sin(i*0.3+simPhase)*2+Math.random()*4-2;
+    // strong center peak (always visible)
+    const cx=n/2, dx=i-cx;
+    v+=Math.exp(-dx*dx/(n*0.06))*32;
+    // secondary lobes
+    [n*0.25,n*0.75].forEach(s=>{
+      const ds=i-s;
+      v+=Math.exp(-ds*ds/(n*0.015))*(10+Math.sin(simPhase*2)*5);
+    });
+    // random occasional spikes
+    if(Math.random()<0.01) v+=Math.random()*18;
+    d[i]=v;
+  }
+  return d;
+}
+
+// ── Real data — amplify tiny signals so they're visible ──
+function getRealDisplay(){
+  const n=BINS;
+  // if no real data at all, show flat noise floor
+  const hasData=specReal.some(v=>v!==null);
+  if(!hasData) return new Array(n).fill(-92);
+  return specReal.map(v=>{
+    if(v===null) return -92;
+    // amplify: compress floor, boost peaks
+    // map -100..-60 → -90..-20 (makes weak signals visible)
+    const normalized=(v+100)/40; // 0..1
+    const amplified=-90+normalized*70;
+    return Math.min(-10, amplified);
+  });
+}
+
+// ── Package mode display ──
+function getPkgDisplay(){
+  const n=BINS;
+  // flat baseline, only show bins where packets were received
+  return specPkg.map(v=>{
+    if(v===null) return -95;
+    return v; // raw RSSI, not amplified
+  });
+}
+
+// ── Get current display data based on mode ──
+function getDisplayData(){
+  if(specMode==='sim') return tickSim();
+  if(specMode==='pkg') return getPkgDisplay();
+  return getRealDisplay(); // real + amplified tiny signals
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAW
+// ═══════════════════════════════════════════════════════
+function drawSpec(data){
+  const w=SC.width, h=SC.height;
+  if(!w||!h) return;
+  SX.fillStyle='#0C0700'; SX.fillRect(0,0,w,h);
+
+  // grid
+  SX.strokeStyle='rgba(255,128,0,0.09)'; SX.lineWidth=1;
+  for(let i=0;i<=4;i++){ const y=h/4*i; SX.beginPath();SX.moveTo(0,y);SX.lineTo(w,y);SX.stroke(); }
+  for(let i=0;i<=8;i++){ const x=w/8*i; SX.beginPath();SX.moveTo(x,0);SX.lineTo(x,h);SX.stroke(); }
+
+  // in real/pkg mode with no data yet, show placeholder
+  if(specMode!=='sim'){
+    const hasAny=data.some(v=>v>-93);
+    if(!hasAny){
+      SX.strokeStyle='rgba(122,69,0,0.35)'; SX.lineWidth=1; SX.setLineDash([4,6]);
+      SX.beginPath(); SX.moveTo(0,h*0.88); SX.lineTo(w,h*0.88); SX.stroke();
+      SX.setLineDash([]);
+      SX.fillStyle='rgba(122,69,0,0.55)'; SX.font='6px "Press Start 2P"';
+      SX.textAlign='center';
+      const msg=specMode==='pkg'?'WAITING FOR PACKETS':'USE ▶ SWEEP OR RX HERE';
+      SX.fillText(msg,w/2,h/2);
+      SX.textAlign='left';
+      return;
+    }
+  }
+
+  const n=data.length, step=w/n;
+  const minR=-100, rng=90;
+
+  // fill
+  SX.beginPath(); SX.moveTo(0,h);
+  for(let i=0;i<n;i++){
+    const x=i*step;
+    const y=h-Math.max(0,(data[i]-minR)/rng)*h;
+    i===0?SX.lineTo(x,y):SX.lineTo(x,y);
+  }
+  SX.lineTo(w,h); SX.closePath();
+  const g=SX.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'rgba(255,160,48,0.9)');
+  g.addColorStop(0.38,'rgba(255,128,0,0.52)');
+  g.addColorStop(0.72,'rgba(160,80,0,0.22)');
+  g.addColorStop(1,'rgba(20,8,0,0.04)');
+  SX.fillStyle=g; SX.fill();
+
+  // top line
+  SX.beginPath(); SX.strokeStyle='#FFB040'; SX.lineWidth=1.5;
+  SX.shadowColor='#FF8000'; SX.shadowBlur=6;
+  for(let i=0;i<n;i++){
+    const x=i*step;
+    const y=h-Math.max(0,(data[i]-minR)/rng)*h;
+    i===0?SX.moveTo(x,y):SX.lineTo(x,y);
+  }
+  SX.stroke(); SX.shadowBlur=0;
+
+  // center marker
+  SX.setLineDash([4,4]);
+  SX.strokeStyle='rgba(255,200,80,0.4)'; SX.lineWidth=1;
+  SX.beginPath(); SX.moveTo(w/2,0); SX.lineTo(w/2,h); SX.stroke();
+  SX.setLineDash([]);
+
+  // dBm labels
+  SX.fillStyle='rgba(255,128,0,0.4)'; SX.font='5px "Press Start 2P"';
+  [[-20,0.05],[-40,0.26],[-60,0.48],[-80,0.70],[-90,0.87]].forEach(([db,f])=>{
+    SX.fillText(db+'dB',2,h*f+6);
+  });
+}
+
+let wfData=null;
+function drawWF(data){
+  const w=WC.width, h=WC.height;
+  if(!w||!h) return;
+  const shift=4;
+  const prev=WX.getImageData(0,0,w,h);
+  const nxt=new ImageData(w,h);
+  nxt.data.set(prev.data.subarray(0,w*(h-shift)*4),w*shift*4);
+  const n=data.length;
+  const hasAny=data.some(v=>v>-93);
+  for(let x=0;x<w;x++){
+    const idx=Math.floor(x/w*n);
+    const v=data[idx]??-95;
+    const t=hasAny?Math.max(0,Math.min(1,(v+100)/90)):0;
+    const r=Math.floor(t*255), g2=Math.floor(t*t*135);
+    for(let s=0;s<shift;s++){
+      const base=(s*w+x)*4;
+      nxt.data[base]=r; nxt.data[base+1]=g2; nxt.data[base+2]=0; nxt.data[base+3]=255;
+    }
+  }
+  WX.putImageData(nxt,0,0);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════
+let lastWF=0;
+function frame(ts){
+  const data=getDisplayData();
+  drawSpec(data);
+  if(ts-lastWF>120){ drawWF(data); lastWF=ts; }
+  // GPU animation
+  gpuT=(gpuT+1)%200;
+  if(connected){
+    const gu=Math.round(8+Math.sin(gpuT*0.09)*4+Math.random()*3);
+    document.getElementById('gpu-fill').style.width=gu+'%';
+    document.getElementById('gpu-val').textContent=gu+'/58';
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setInterval(()=>{ document.getElementById('sbar-time').textContent=new Date().toTimeString().slice(0,8); },1000);
+
+// ═══════════════════════════════════════════════════════
+// WEBSERIAL
+// ═══════════════════════════════════════════════════════
+async function toggleConnect(){ connected?await doDisconnect():await doConnect(); }
+
+async function doConnect(){
+  if(!('serial' in navigator)){ alert('Use Google Chrome or Microsoft Edge (WebSerial required).'); return; }
+  try{
+    port=await navigator.serial.requestPort({filters:[]});
+    await port.open({baudRate:230400});
+    const enc=new TextEncoderStream();
+    enc.readable.pipeTo(port.writable).catch(()=>{});
+    writer=enc.writable.getWriter();
+    connected=true;
+    document.getElementById('conn-btn').textContent='DISCONNECT';
+    document.getElementById('conn-btn').classList.add('on');
+    document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('conn-device').textContent='Connected to: FLIPPER';
+    document.getElementById('conn-tty').textContent='Debug TTY open';
+    document.getElementById('dot').style.color='var(--GRN)';
+    document.getElementById('sb-conn').textContent='Connected via Debug Mode';
+    if(specMode==='real'){
+      document.getElementById('data-badge').className='data-badge idle';
+      document.getElementById('data-badge').textContent='● CONNECTED';
+    }
+    log('ok','Serial connected @ 230400 baud');
+    log('info','DBG_TTY session started');
+    startRead();
+    await sleep(400); await send('\r\n');
+    await sleep(200); await send('device_info\r\n');
+  }catch(e){ if(e.name!=='NotFoundError') log('warn','Connect: '+e.message); }
+}
+
+async function doDisconnect(){
+  sweeping=false; clearInterval(sweepIv);
+  document.getElementById('scanbtn').classList.remove('active');
+  connected=false;
+  try{ if(reader) await reader.cancel(); }catch(e){}
+  try{ if(writer) await writer.close(); }catch(e){}
+  try{ if(port) await port.close(); }catch(e){}
+  reader=writer=null; port=null;
+  document.getElementById('conn-btn').textContent='CONNECT USB';
+  document.getElementById('conn-btn').classList.remove('on');
+  document.getElementById('overlay').classList.remove('hidden');
+  document.getElementById('conn-device').textContent='Not Connected';
+  document.getElementById('conn-tty').textContent='USB Serial Disconnected';
+  document.getElementById('dot').style.color='var(--O)';
+  document.getElementById('sb-conn').textContent='Disconnected';
+  document.getElementById('data-badge').className='data-badge idle';
+  document.getElementById('data-badge').textContent='● WAITING';
+  specReal.fill(null);
+  specPkg.fill(null);
+  pktCount=0;
+  document.getElementById('pkt-count').textContent='0';
+  document.getElementById('live-rssi').textContent='— dBm';
+  document.getElementById('sb-rssi').textContent='-- dBm';
+  document.getElementById('sigfill').style.width='0%';
+  log('warn','Disconnected');
+}
+
+// Handle unexpected USB disconnection
+if('serial' in navigator){
+  navigator.serial.addEventListener('disconnect', ()=>{
+    if(connected) doDisconnect();
+  });
+}
+
+async function startRead(){
+  const dec=new TextDecoderStream();
+  port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader=dec.readable.getReader(); rbuf='';
+  try{
+    for(;;){
+      const{value,done}=await reader.read();
+      if(done) break;
+      rbuf+=value;
+      const lines=rbuf.split('\n'); rbuf=lines.pop();
+      lines.forEach(l=>{ if(l.trim()) handleLine(l.trim()); });
+    }
+  }catch(e){ if(connected) log('warn','Read: '+e.message); }
+}
+
+// ═══════════════════════════════════════════════════════
+// LINE HANDLER
+// ═══════════════════════════════════════════════════════
+function handleLine(line){
+  log('info',line);
+  appendRX(line);
+  appendFullLog(line);
+
+  // device name
+  if(/hardware_name/i.test(line)){
+    const p=line.split(':').pop().trim();
+    if(p) document.getElementById('conn-device').textContent='Connected to: '+p.toUpperCase().slice(0,12);
+  }
+
+  // packets received
+  const pkm=line.match(/Packets received\s+(\d+)/i);
+  if(pkm){ pktCount=+pkm[1]; document.getElementById('pkt-count').textContent=pktCount; }
+
+  // frequency from output
+  const lm=line.match(/Listening at.*?(\d{8,9})/i);
+  if(lm) setFreqDisplay(+lm[1]);
+
+  // RSSI parsing — multiple formats Flipper outputs
+  const rm=line.match(/RSSI[:\s]+([-\d.]+)/i)
+           || line.match(/([-]\d{2,3}(?:\.\d)?)\s*dBm/i);
+  if(rm) ingestRSSI(parseFloat(rm[1]), curFreq, false);
+
+  // signal/protocol detected → inject spike at center for all modes
+  if(/signal.detected|protocol:|key:/i.test(line)){
+    log('signal','Signal: '+line.slice(0,60));
+    addSig(line);
+    // in any mode — inject a real spike at current freq
+    ingestRSSI(-45+Math.random()*10, curFreq, true);
+  }
+}
+
+// ── Feed RSSI into correct spectrum buffers ──
+function ingestRSSI(rssi, freq, isPacket){
+  lastRSSI=rssi;
+  document.getElementById('live-rssi').textContent=rssi.toFixed(1)+' dBm';
+  document.getElementById('sb-rssi').textContent=rssi.toFixed(1)+' dBm';
+  const pct=Math.max(0,Math.min(100,(rssi+100)/65*100));
+  document.getElementById('sigfill').style.width=pct+'%';
+
+  // map freq → bin
+  const bwHz=curBW*1000;
+  const fMin=curFreq-bwHz/2, fMax=curFreq+bwHz/2;
+  const bin=Math.round((freq-fMin)/(fMax-fMin)*(BINS-1));
+
+  if(bin>=0&&bin<BINS){
+    // always feed real buffer
+    specReal[bin]=specReal[bin]===null?rssi:specReal[bin]*0.5+rssi*0.5;
+    // gaussian spread ±2 bins
+    [-2,-1,1,2].forEach(d=>{
+      const b=bin+d;
+      if(b>=0&&b<BINS){
+        const s=rssi-Math.abs(d)*5;
+        specReal[b]=specReal[b]===null?s:Math.max(specReal[b]*0.65+s*0.35,specReal[b]);
+      }
+    });
+
+    // package buffer — only on actual signal detection
+    if(isPacket){
+      specPkg[bin]=specPkg[bin]===null?rssi:Math.max(specPkg[bin],rssi);
+      [-1,1].forEach(d=>{
+        const b=bin+d;
+        if(b>=0&&b<BINS) specPkg[b]=specPkg[b]===null?rssi-6:Math.max(specPkg[b],rssi-6);
+      });
+    }
+  }
+
+  // update badge
+  if(specMode==='real'){
+    document.getElementById('data-badge').className='data-badge real';
+    document.getElementById('data-badge').textContent='● REAL DATA';
+  }
+  if(rssi>alertThreshold) triggerAlert();
+  pushSparkline(rssi);
+}
+
+// ═══════════════════════════════════════════════════════
+// SWEEP
+// ═══════════════════════════════════════════════════════
+async function startSweep(){
+  if(!connected){ log('warn','Not connected'); return; }
+  if(sweeping) return;
+  sweeping=true;
+  specReal.fill(null);
+  document.getElementById('scanbtn').classList.add('active');
+  log('info','Sweep started');
+
+  const steps=32, bwHz=curBW*1000;
+  const fMin=curFreq-bwHz/2, fMax=curFreq+bwHz/2;
+  const fStep=(fMax-fMin)/steps;
+  sweepFreqs=[];
+  for(let i=0;i<steps;i++){
+    const f=Math.round(fMin+i*fStep);
+    if(isValidFlipperFreq(f)) sweepFreqs.push(f);
+  }
+  sweepIdx=0;
+
+  if(!sweepFreqs.length){
+    sweeping=false;
+    document.getElementById('scanbtn').classList.remove('active');
+    log('warn','No valid Flipper frequencies in current sweep range');
+    return;
+  }
+
+  sweepIv=setInterval(async()=>{
+    if(!sweeping||!connected){ clearInterval(sweepIv); return; }
+    const f=sweepFreqs[sweepIdx%sweepFreqs.length];
+    await send('\x03'); await sleep(30);
+    await send(`subghz rx ${f} 0\r\n`);
+    sweepIdx++;
+  },170);
+}
+
+function stopSweep(){
+  sweeping=false; clearInterval(sweepIv);
+  document.getElementById('scanbtn').classList.remove('active');
+  if(connected) send('\x03');
+  log('warn','Sweep stopped');
+}
+
+async function startRX(){
+  if(!connected){ log('warn','Not connected'); return; }
+  if(!isValidFlipperFreq(curFreq)){ log('warn','Freq out of Flipper range'); return; }
+  await send('\x03'); await sleep(50);
+  await send(`subghz rx ${curFreq} 0\r\n`);
+  log('ok','RX @ '+(curFreq/1e6).toFixed(6)+' MHz');
+}
+
+function isValidFlipperFreq(f){
+  return(f>=299999755&&f<=348000000)||(f>=386999938&&f<=464000000)||(f>=778999847&&f<=928000000);
+}
+
+// ═══════════════════════════════════════════════════════
+// SUBGHZ COMMANDS
+// ═══════════════════════════════════════════════════════
+async function sgRX(){
+  if(!connected){ log('warn','Not connected'); return; }
+  const f=+document.getElementById('sg-freq').value;
+  if(!isValidFlipperFreq(f)){ log('warn','Freq out of Flipper range (300-348, 387-464, 779-928 MHz)'); return; }
+  const d=document.getElementById('sg-dev').value;
+  await send('\x03'); await sleep(40);
+  await send(`subghz rx ${f} ${d}\r\n`);
+  appendRX(`[RX] @ ${(f/1e6).toFixed(6)} MHz ...`);
+  log('ok',`RX @ ${(f/1e6).toFixed(3)} MHz`);
+}
+async function sgRXRaw(){
+  if(!connected){ log('warn','Not connected'); return; }
+  const f=+document.getElementById('sg-freq').value;
+  if(!isValidFlipperFreq(f)){ log('warn','Freq out of Flipper range (300-348, 387-464, 779-928 MHz)'); return; }
+  await send('\x03'); await sleep(40);
+  await send(`subghz rx_raw ${f}\r\n`);
+  appendRX(`[RX RAW] @ ${(f/1e6).toFixed(6)} MHz ...`);
+}
+async function sgStop(){
+  if(!connected) return;
+  await send('\x03'); appendRX('[STOPPED]'); log('warn','Stopped');
+}
+async function sgFreqAna(){
+  if(!connected){ log('warn','Not connected'); return; }
+  await send('loader open "Sub-GHz"\r\n');
+}
+async function sgChat(){
+  if(!connected){ log('warn','Not connected'); return; }
+  const f=+document.getElementById('sg-freq').value;
+  if(!isValidFlipperFreq(f)){ log('warn','Freq out of Flipper range (300-348, 387-464, 779-928 MHz)'); return; }
+  const d=document.getElementById('sg-dev').value;
+  await send(`subghz chat ${f} ${d}\r\n`);
+}
+async function sgTX(){
+  if(!connected){ log('warn','Not connected'); return; }
+  const raw=document.getElementById('tx-key').value;
+  if(!/^[0-9A-Fa-f]{1,6}$/.test(raw)){ log('warn','TX Key must be 1-6 hex characters (0-9, A-F)'); return; }
+  const k=raw.toUpperCase().padStart(6,'0');
+  const f=+document.getElementById('sg-freq').value;
+  if(!isValidFlipperFreq(f)){ log('warn','Freq out of Flipper range (300-348, 387-464, 779-928 MHz)'); return; }
+  const te=+document.getElementById('tx-te').value;
+  const rp=+document.getElementById('tx-rep').value;
+  const d=document.getElementById('sg-dev').value;
+  await send(`subghz tx ${k} ${f} ${te} ${rp} ${d}\r\n`);
+  appendRX(`[TX] Key:${k} @ ${(f/1e6).toFixed(3)}MHz TE:${te}µs ×${rp}`);
+  log('ok',`TX ${k}`);
+}
+
+async function send(cmd){ if(!writer) return; try{ await writer.write(cmd); }catch(e){ log('warn','Send: '+e.message); } }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ═══════════════════════════════════════════════════════
+// FREQ UI
+// ═══════════════════════════════════════════════════════
+function stepF(dir){
+  curFreq=Math.max(300000000,Math.min(928000000,curFreq+dir*100000));
+  setFreqDisplay(curFreq);
+}
+function applyPreset(v){ curFreq=+v; setFreqDisplay(curFreq); }
+function setBW(v){
+  curBW=+v;
+  document.getElementById('bwval').textContent=v+' kHz';
+  document.getElementById('sb-bw').textContent=v+' kHz';
+  setFreqDisplay(curFreq); specReal.fill(null); specPkg.fill(null);
+  saveSettings();
+}
+function setFreqDisplay(hz){
+  curFreq=hz;
+  const mhz=(hz/1e6).toFixed(6);
+  document.getElementById('fdisp').textContent=mhz;
+  document.getElementById('bigfreq').textContent=mhz;
+  document.getElementById('lo-v').textContent=((hz/1e6)-2.2).toFixed(2)+' MHz';
+  const bw=curBW/1000;
+  document.getElementById('xa-l').textContent=((hz/1e6)-bw*0.9).toFixed(1)+' MHz';
+  document.getElementById('xa-m1').textContent=((hz/1e6)-bw*0.4).toFixed(3)+' MHz';
+  document.getElementById('xa-c').textContent=mhz+' MHz';
+  document.getElementById('xa-m2').textContent=((hz/1e6)+bw*0.4).toFixed(3)+' MHz';
+  document.getElementById('xa-r').textContent=((hz/1e6)+bw*0.9).toFixed(1)+' MHz';
+  saveSettings();
+}
+function setRXTX(m){
+  document.getElementById('rx-b').classList.toggle('on',m==='rx');
+  document.getElementById('tx-b').classList.toggle('on',m==='tx');
+}
+function recordFreq(){
+  const entry=(curFreq/1e6).toFixed(6)+' MHz @ '+new Date().toTimeString().slice(0,8);
+  recordedFreqs.push(entry);
+  log('ok','Recorded: '+(curFreq/1e6).toFixed(6)+' MHz');
+}
+function clearFreq(){
+  recordedFreqs=[];
+  log('info','Recorded frequencies cleared');
+}
+function saveFreq(){
+  if(!recordedFreqs.length){ log('warn','No recorded frequencies to save'); return; }
+  dl('recorded_freqs.txt',recordedFreqs.join('\n'));
+  log('ok','Saved '+recordedFreqs.length+' recorded frequencies');
+}
+
+// Gain bars
+const gainMax={lna:40,mix:24,if:40};
+function applyGain(id,db){
+  db=Math.max(0,Math.min(gainMax[id],Math.round(db)));
+  const pct=db/gainMax[id]*100;
+  document.getElementById(id+'-fill').style.width=pct+'%';
+  document.getElementById(id+'-head').style.left=pct+'%';
+  const map={lna:['rp-lna','rp-lna-v'],mix:['rp-mix','rp-mix-v'],if:['rp-if','rp-if-v']};
+  document.getElementById(map[id][0]).style.width=pct+'%';
+  document.getElementById(map[id][1]).textContent=db+' dB';
+}
+['lna','mix','if'].forEach(id=>{
+  const el=document.getElementById(id+'-track'); if(!el) return;
+  let drag=false;
+  const move=cx=>{ const r=el.getBoundingClientRect(); applyGain(id,Math.max(0,Math.min(100,(cx-r.left)/r.width*100))/100*gainMax[id]); };
+  el.addEventListener('mousedown',e=>{drag=true;move(e.clientX);});
+  window.addEventListener('mousemove',e=>{if(drag)move(e.clientX);});
+  window.addEventListener('mouseup',()=>drag=false);
+  el.addEventListener('touchstart',e=>{drag=true;move(e.touches[0].clientX);},{passive:true});
+  window.addEventListener('touchmove',e=>{if(drag)move(e.touches[0].clientX);},{passive:true});
+  window.addEventListener('touchend',()=>drag=false);
+});
+
+// ═══════════════════════════════════════════════════════
+// SIGNALS
+// ═══════════════════════════════════════════════════════
+function addSig(line){
+  const now=new Date().toTimeString().slice(0,8);
+  signals.unshift({freq:(curFreq/1e6).toFixed(3),time:now,data:line.slice(0,50),rssi:lastRSSI.toFixed(0)});
+  if(signals.length>200) signals.length=200;
+  renderSigs();
+}
+function renderSigs(){
+  const c=document.getElementById('siglist');
+  if(!signals.length){ c.innerHTML='<div style="font-size:6px;color:var(--DIM);">No signals yet.</div>'; return; }
+  c.innerHTML='';
+  signals.slice(0,60).forEach(s=>{
+    const div=document.createElement('div'); div.className='sig-item';
+    const sf=document.createElement('span'); sf.className='sf'; sf.textContent=s.freq+' MHz';
+    const sp=document.createElement('span'); sp.className='sp'; sp.textContent=s.data;
+    const sr=document.createElement('span'); sr.className='sr'; sr.textContent=s.rssi+' dBm';
+    const st=document.createElement('span'); st.style.cssText='font-size:5px;color:var(--DIM);'; st.textContent=s.time;
+    div.append(sf,sp,sr,st); c.appendChild(div);
+  });
+}
+function clearSigs(){ signals=[]; renderSigs(); }
+function exportSigs(){ dl('signals.txt',signals.map(s=>`${s.time}\t${s.freq}MHz\t${s.rssi}dBm\t${s.data}`).join('\n')); }
+
+// ═══════════════════════════════════════════════════════
+// LOGS
+// ═══════════════════════════════════════════════════════
+function log(type,msg){
+  const ll=document.getElementById('loglist');
+  const d=document.createElement('div');
+  d.className={ok:'lo',warn:'lw',signal:'ls',info:'li'}[type]||'li';
+  d.textContent='['+type.toUpperCase()+'] '+msg;
+  ll.appendChild(d);
+  while(ll.children.length>12) ll.removeChild(ll.firstChild);
+  ll.scrollTop=ll.scrollHeight;
+  appendFullLog('['+new Date().toTimeString().slice(0,8)+']['+type.toUpperCase()+'] '+msg);
+}
+function appendRX(l){
+  const e=document.getElementById('rxout');
+  e.textContent+=l+'\n';
+  const lines=e.textContent.split('\n');
+  if(lines.length>520) e.textContent=lines.slice(lines.length-500).join('\n');
+  e.scrollTop=e.scrollHeight;
+}
+function appendFullLog(l){
+  const e=document.getElementById('fulllog');
+  e.textContent+=l+'\n';
+  const lines=e.textContent.split('\n');
+  if(lines.length>1020) e.textContent=lines.slice(lines.length-1000).join('\n');
+  e.scrollTop=e.scrollHeight;
+}
+function clearRX(){ document.getElementById('rxout').textContent=''; }
+function saveRX(){ dl('rx_output.txt',document.getElementById('rxout').textContent); }
+function clearLogs(){ document.getElementById('fulllog').textContent=''; }
+function exportLogs(){ dl('flipsay_log.txt',document.getElementById('fulllog').textContent); }
+function dl(name,txt){ const a=document.createElement('a'); const url=URL.createObjectURL(new Blob([txt],{type:'text/plain'})); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),100); }
+
+// ═══════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════
+function showTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  setTimeout(resize,50);
+}
+
+// INIT
+setFreqDisplay(433920000);
+loadSettings();
+log('info','FlipSay Public Beta ready');
+log('info','Connect Flipper Zero via USB');
+if(!('serial' in navigator)) log('warn','WebSerial not supported — use Chrome/Edge!');
+else log('ok','WebSerial API ready');
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS PERSISTENCE
+// ═══════════════════════════════════════════════════════
+function saveSettings(){
+  try{
+    localStorage.setItem('flipsay_freq', curFreq);
+    localStorage.setItem('flipsay_bw', curBW);
+  }catch(e){}
+}
+function loadSettings(){
+  try{
+    const f=+localStorage.getItem('flipsay_freq');
+    const b=+localStorage.getItem('flipsay_bw');
+    if(f>=300000000&&f<=928000000){ curFreq=f; setFreqDisplay(f); }
+    if(b>=100&&b<=3000){
+      curBW=b;
+      document.getElementById('bw-sl').value=b;
+      document.getElementById('bwval').textContent=b+' kHz';
+      document.getElementById('sb-bw').textContent=b+' kHz';
+    }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════
+// THRESHOLD ALERT
+// ═══════════════════════════════════════════════════════
+let alertThreshold=-60, beepEnabled=false, alertCooldown=false;
+let audioCtx=null;
+function setThreshold(v){
+  alertThreshold=+v;
+  document.getElementById('thresh-disp').textContent=v+' dBm';
+}
+function toggleBeep(btn){
+  beepEnabled=!beepEnabled;
+  btn.textContent=beepEnabled?'ON':'OFF';
+  btn.classList.toggle('on',beepEnabled);
+  if(beepEnabled&&!audioCtx){
+    try{ audioCtx=new(window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+  }
+}
+function triggerAlert(){
+  if(alertCooldown) return;
+  alertCooldown=true;
+  const frame=document.getElementById('frame');
+  frame.classList.add('alerting');
+  setTimeout(()=>{ frame.classList.remove('alerting'); alertCooldown=false; },1000);
+  if(beepEnabled&&audioCtx){
+    try{
+      const o=audioCtx.createOscillator();
+      const g=audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.frequency.value=880; g.gain.value=0.15;
+      o.start(); o.stop(audioCtx.currentTime+0.12);
+    }catch(e){}
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CLIPBOARD
+// ═══════════════════════════════════════════════════════
+async function copyRX(){
+  const txt=document.getElementById('rxout').textContent;
+  try{ await navigator.clipboard.writeText(txt); log('ok','RX output copied to clipboard'); }
+  catch(e){ log('warn','Clipboard copy failed: '+e.message); }
+}
+async function copyLogs(){
+  const txt=document.getElementById('fulllog').textContent;
+  try{ await navigator.clipboard.writeText(txt); log('ok','Logs copied to clipboard'); }
+  catch(e){ log('warn','Clipboard copy failed: '+e.message); }
+}
+
+// ═══════════════════════════════════════════════════════
+// RSSI SPARKLINE
+// ═══════════════════════════════════════════════════════
+const SPARK_LEN=80;
+let sparkData=new Array(SPARK_LEN).fill(null);
+const sparkCanvas=document.getElementById('spark-canvas');
+const sparkCtx=sparkCanvas.getContext('2d');
+
+function pushSparkline(rssi){
+  sparkData.push(rssi);
+  if(sparkData.length>SPARK_LEN) sparkData.shift();
+  drawSparkline();
+}
+function drawSparkline(){
+  const w=sparkCanvas.width, h=sparkCanvas.height;
+  sparkCtx.clearRect(0,0,w,h);
+  const pts=sparkData.filter(v=>v!==null);
+  if(!pts.length) return;
+  const min=-110, max=-20, rng=max-min;
+  sparkCtx.strokeStyle='#FF8000'; sparkCtx.lineWidth=1;
+  sparkCtx.beginPath();
+  let first=true;
+  for(let i=0;i<sparkData.length;i++){
+    if(sparkData[i]===null) continue;
+    const x=(i/SPARK_LEN)*w;
+    const y=h-((sparkData[i]-min)/rng)*h;
+    first?(sparkCtx.moveTo(x,y),first=false):sparkCtx.lineTo(x,y);
+  }
+  sparkCtx.stroke();
+}
+
+// ═══════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', e=>{
+  // Don't fire when typing in inputs
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA') return;
+  if(e.key==='ArrowLeft'){ e.preventDefault(); stepF(-1); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); stepF(1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); stepF(10); }
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepF(-10); }
+  else if(e.key===' '){ e.preventDefault(); sweeping?stopSweep():startSweep(); }
+  else if(e.key==='Escape'){ e.preventDefault(); if(connected) send('\x03'); stopSweep(); }
+});
+</script>
+</body>
+</html>
