@@ -650,7 +650,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
 let port=null,reader=null,writer=null,rbuf='';
 let connected=false, sweeping=false;
 let curFreq=433920000, curBW=1000;
-let sweepIv=null, sweepFreqs=[], sweepIdx=0;
+let sweepIv=null, sweepFreqs=[], sweepIdx=0, sweepCurBin=null;
 let pktCount=0, lastRSSI=-90;
 let signals=[], gpuT=0;
 let recordedFreqs=[];
@@ -797,7 +797,10 @@ function drawSpec(data){
       SX.setLineDash([]);
       SX.fillStyle='rgba(122,69,0,0.55)'; SX.font='6px "Press Start 2P"';
       SX.textAlign='center';
-      const msg=specMode==='pkg'?'WAITING FOR PACKETS':'USE ▶ SWEEP OR RX HERE';
+      let msg;
+      if(specMode==='pkg') msg='WAITING FOR PACKETS';
+      else if(sweeping)    msg='SCANNING — SIGNALS WILL APPEAR HERE';
+      else                 msg='USE ▶ SWEEP OR RX HERE';
       SX.fillText(msg,w/2,h/2);
       SX.textAlign='left';
       return;
@@ -843,6 +846,17 @@ function drawSpec(data){
   [[-20,0.05],[-40,0.26],[-60,0.48],[-80,0.70],[-90,0.87]].forEach(([db,f])=>{
     SX.fillText(db+'dB',2,h*f+6);
   });
+
+  // sweep cursor — dim orange column at current scan position
+  if(sweeping && sweepCurBin !== null){
+    const bw=w/BINS;
+    const cx=sweepCurBin*bw;
+    SX.fillStyle='rgba(255,128,0,0.18)';
+    SX.fillRect(cx,0,Math.max(bw,3),h);
+    SX.strokeStyle='rgba(255,180,80,0.5)';
+    SX.lineWidth=1;
+    SX.beginPath(); SX.moveTo(cx+bw/2,0); SX.lineTo(cx+bw/2,h); SX.stroke();
+  }
 }
 
 let wfData=null;
@@ -924,7 +938,7 @@ async function doConnect(){
 }
 
 async function doDisconnect(){
-  sweeping=false; clearInterval(sweepIv);
+  sweeping=false; sweepCurBin=null; clearInterval(sweepIv);
   document.getElementById('scanbtn').classList.remove('active');
   connected=false;
   try{ if(reader) await reader.cancel(); }catch(e){}
@@ -976,6 +990,9 @@ async function startRead(){
 // LINE HANDLER
 // ═══════════════════════════════════════════════════════
 function handleLine(line){
+  // strip ANSI escape codes (Flipper wraps output in \x1b[31m...\x1b[0m; ESC can be dropped
+  // by TextDecoder leaving bare [31m... sequences — strip both forms)
+  line=line.replace(/\x1b\[[0-9;]*[mGKHFJA-Z]/g,'').replace(/\[\d+[mGKHF]/g,'');
   log('info',line);
   appendRX(line);
   appendFullLog(line);
@@ -1083,15 +1100,20 @@ async function startSweep(){
 
   sweepIv=setInterval(async()=>{
     if(!sweeping||!connected){ clearInterval(sweepIv); return; }
-    const f=sweepFreqs[sweepIdx%sweepFreqs.length];
+    const idx=sweepIdx%sweepFreqs.length;
+    const f=sweepFreqs[idx];
+    sweepCurBin=Math.round(idx/sweepFreqs.length*(BINS-1));
     await send('\x03'); await sleep(30);
     await send(`subghz rx ${f} 0\r\n`);
+    // inject a noise-floor baseline so spectrum shows scan activity even with no signals
+    // real signals (RSSI >> -95) will dominate; this just gives visual feedback
+    if(specMode==='real') ingestRSSI(-95+Math.random()*2, f, false);
     sweepIdx++;
-  },300);
+  },500);
 }
 
 function stopSweep(){
-  sweeping=false; clearInterval(sweepIv);
+  sweeping=false; sweepCurBin=null; clearInterval(sweepIv);
   document.getElementById('scanbtn').classList.remove('active');
   if(connected) send('\x03');
   log('warn','Sweep stopped');
