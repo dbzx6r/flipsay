@@ -13,7 +13,14 @@
   --PX:'Press Start 2P',monospace;
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--BG);}
-body{font-family:var(--PX);font-size:8px;color:var(--O);image-rendering:pixelated;cursor:default;}
+body{font-family:var(--PX);font-size:8px;color:var(--O);image-rendering:pixelated;cursor:default;zoom:var(--ui-zoom,1.5);}
+/* ── ZOOM BUTTONS ── */
+#zoom-ctrl{display:flex;align-items:center;gap:0;margin-left:8px;}
+.zbtn{font-family:var(--PX);font-size:5px;padding:3px 6px;border:2px solid var(--OX);background:var(--BG3);color:var(--DIM);cursor:pointer;border-right:none;}
+.zbtn:last-child{border-right:2px solid var(--OX);}
+.zbtn:hover{color:var(--OB);}
+.zbtn.active{background:var(--OD);color:var(--BG);border-color:var(--OD);}
+.zbtn.active+.zbtn{border-left:none;}
 
 /* ── FRAME ── */
 #frame{width:100vw;height:100vh;display:flex;flex-direction:column;
@@ -272,7 +279,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
     <ul id="welcome-notes">
       <li>Requires <span style="color:var(--OB)">Momentum firmware</span> (developer version)</li>
       <li>Enable <span style="color:var(--OB)">Debug Mode</span> on your Flipper first</li>
-      <li>Use <span style="color:var(--OB)">Google Chrome</span> or <span style="color:var(--OB)">Microsoft Edge</span></li>
+      <li>Use <span style="color:var(--OB)">Chrome</span>, <span style="color:var(--OB)">Edge</span>, or <span style="color:var(--OB)">Brave</span></li>
       <li>Close <span style="color:var(--OB)">qFlipper</span> before connecting</li>
       <li>This is a <span style="color:var(--YEL)">beta</span> — bugs may occur. Report them!</li>
     </ul>
@@ -321,6 +328,12 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
       </div>
     </div>
     <div id="hdr-right">
+      <div id="zoom-ctrl">
+        <button class="zbtn" onclick="setZoom(1)"   data-z="1">1x</button>
+        <button class="zbtn active" onclick="setZoom(1.5)" data-z="1.5">1.5x</button>
+        <button class="zbtn" onclick="setZoom(2)"   data-z="2">2x</button>
+        <button class="zbtn" onclick="setZoom(2.5)" data-z="2.5">2.5x</button>
+      </div>
       <div id="conn-info">
         <div id="conn-device">Not Connected</div>
         <div id="conn-tty">USB Serial Disconnected</div>
@@ -348,7 +361,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
         Connect Flipper Zero via USB cable.<br>
         Close qFlipper · Enable Debug Mode<br>
         Momentum firmware required.<br>
-        Chrome or Edge only (WebSerial API).
+        Chrome, Edge, or Brave (WebSerial API).
       </div>
       <button id="ov-btn" onclick="toggleConnect()">CONNECT NOW</button>
     </div>
@@ -875,7 +888,7 @@ setInterval(()=>{ document.getElementById('sbar-time').textContent=new Date().to
 async function toggleConnect(){ connected?await doDisconnect():await doConnect(); }
 
 async function doConnect(){
-  if(!('serial' in navigator)){ alert('Use Google Chrome or Microsoft Edge (WebSerial required).'); return; }
+  if(!('serial' in navigator)){ alert('Use Chrome, Edge, or Brave (WebSerial required). Brave users: check brave://flags → enable Web Serial API if needed.'); return; }
   try{
     port=await navigator.serial.requestPort({filters:[]});
     await port.open({baudRate:230400});
@@ -892,10 +905,12 @@ async function doConnect(){
     document.getElementById('sb-conn').textContent='Connected via Debug Mode';
     if(specMode==='real'){
       document.getElementById('data-badge').className='data-badge idle';
-      document.getElementById('data-badge').textContent='● CONNECTED';
+      document.getElementById('data-badge').textContent='▶ SWEEP TO START';
     }
     log('ok','Serial connected @ 230400 baud');
     log('info','DBG_TTY session started');
+    log('info','▶ Click SWEEP or RX HERE to receive spectrum data');
+    log('info','Spectrum updates when Flipper detects RF signals');
     startRead();
     await sleep(400); await send('\r\n');
     await sleep(200); await send('device_info\r\n');
@@ -973,9 +988,10 @@ function handleLine(line){
   const lm=line.match(/Listening at.*?(\d{8,9})/i);
   if(lm) setFreqDisplay(+lm[1]);
 
-  // RSSI parsing — multiple formats Flipper outputs
-  const rm=line.match(/RSSI[:\s]+([-\d.]+)/i)
-           || line.match(/([-]\d{2,3}(?:\.\d)?)\s*dBm/i);
+  // RSSI parsing — multiple formats Flipper/Momentum firmware outputs
+  // handles: "RSSI: -75.5", "RSSI=-75.5", "RSSI -75.5", "-75.5 dBm", "rssi=-89.00 dBm"
+  const rm=line.match(/RSSI[:\s=]+([-\d.]+)/i)
+           || line.match(/([-]\d{2,3}(?:\.\d+)?)\s*dBm/i);
   if(rm) ingestRSSI(parseFloat(rm[1]), curFreq, false);
 
   // signal/protocol detected → inject spike at center for all modes
@@ -1065,7 +1081,7 @@ async function startSweep(){
     await send('\x03'); await sleep(30);
     await send(`subghz rx ${f} 0\r\n`);
     sweepIdx++;
-  },170);
+  },300);
 }
 
 function stopSweep(){
@@ -1281,13 +1297,35 @@ function showTab(name,el){
   setTimeout(resize,50);
 }
 
+// ═══════════════════════════════════════════════════════
+// UI ZOOM
+// ═══════════════════════════════════════════════════════
+function setZoom(z){
+  document.documentElement.style.setProperty('--ui-zoom', z);
+  document.querySelectorAll('.zbtn').forEach(b=>{
+    b.classList.toggle('active', +b.dataset.z === z);
+    // fix active+sibling border
+    b.style.borderLeft = '';
+  });
+  try{ localStorage.setItem('flipsay_zoom', z); }catch(e){}
+  setTimeout(resize, 50);
+}
+function loadZoom(){
+  try{
+    const z=+localStorage.getItem('flipsay_zoom');
+    if(z>=0.75 && z<=2.5) setZoom(z);
+    else setZoom(1.5);
+  }catch(e){ setZoom(1.5); }
+}
+
 // INIT
 setFreqDisplay(433920000);
 loadSettings();
+loadZoom();
 log('info','FlipSay Public Beta ready');
 log('info','Connect Flipper Zero via USB');
-if(!('serial' in navigator)) log('warn','WebSerial not supported — use Chrome/Edge!');
-else log('ok','WebSerial API ready');
+if(!('serial' in navigator)) log('warn','WebSerial not supported — use Chrome, Edge, or Brave!');
+else log('ok','WebSerial API ready (Chrome/Edge/Brave)');
 
 // ═══════════════════════════════════════════════════════
 // SETTINGS PERSISTENCE
