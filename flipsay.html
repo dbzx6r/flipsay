@@ -11,9 +11,10 @@
   --BG:#0C0700;--BG2:#140B00;--BG3:#1C1000;
   --DIM:#7A4500;--GRN:#00FF80;--RED:#FF2200;--YEL:#FFD700;
   --PX:'Press Start 2P',monospace;
+  --ui-zoom:1.5;
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--BG);}
-body{font-family:var(--PX);font-size:8px;color:var(--O);image-rendering:pixelated;cursor:default;zoom:var(--ui-zoom,1.5);}
+body{font-family:var(--PX);font-size:8px;color:var(--O);image-rendering:pixelated;cursor:default;}
 /* ── ZOOM BUTTONS ── */
 #zoom-ctrl{display:flex;align-items:center;gap:0;margin-left:8px;}
 .zbtn{font-family:var(--PX);font-size:5px;padding:3px 6px;border:2px solid var(--OX);background:var(--BG3);color:var(--DIM);cursor:pointer;border-right:none;}
@@ -23,7 +24,12 @@ body{font-family:var(--PX);font-size:8px;color:var(--O);image-rendering:pixelate
 .zbtn.active+.zbtn{border-left:none;}
 
 /* ── FRAME ── */
-#frame{width:100vw;height:100vh;display:flex;flex-direction:column;
+#frame{
+  width:calc(100vw / var(--ui-zoom,1.5));
+  height:calc(100vh / var(--ui-zoom,1.5));
+  transform:scale(var(--ui-zoom,1.5));
+  transform-origin:top left;
+  display:flex;flex-direction:column;
   border:3px solid var(--OD);position:relative;overflow:hidden;
   box-shadow:0 0 40px rgba(255,128,0,0.12);}
 .corner{position:absolute;width:14px;height:14px;z-index:200;}
